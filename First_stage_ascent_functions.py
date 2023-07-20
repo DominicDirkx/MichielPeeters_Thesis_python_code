@@ -214,23 +214,25 @@ class CustomGuidanceModel:
         )
 
     def get_thrust_magnitude(self, current_time: float):
-        self.update_guidance(current_time)
-        print(current_time, self.current_time)
-        return self.F_magnitude
+        if( current_time == current_time ):
+            self.update_guidance(current_time)
+            return self.F_magnitude
+        else:
+            return np.nan
 
     def get_Isp(self, current_time: float):
-        self.update_guidance(current_time)
-
-        return self.I_sp
+        if( current_time == current_time ):
+            self.update_guidance(current_time)
+            return self.I_sp
+        else:
+            return np.nan
 
     def get_aerodynamic_angles(self, current_time: float):
         self.update_guidance(current_time)
-
         return np.array([self.angle_of_attack, 0, 0])
 
     def get_aerodynamic_coefficients(self, current_time: float):
-        self.update_guidance(current_time)
-
+        self.update_guidance(current_time[0])
         return np.array([self.CD, 0, self.CL])
 
     def update_guidance(self, current_time: float):
@@ -239,40 +241,42 @@ class CustomGuidanceModel:
         #     self.current_time = float("NaN")
         #
         # elif (current_time != self.current_time):
+        print('Calling guidance update', current_time)
+        if( ( current_time == current_time ) and (self.current_time != current_time ) ):
+            print('Computing guidance update', current_time)
+            # Interpolate flight path angle between nodes at time
+            desired_flight_path_angle = self.flight_path_cubic_interpolator.interpolate(current_time)
+            # Let TUDAT know to update all values
+            self.vehicle.flight_conditions.update_conditions(current_time)
 
-        # Interpolate flight path angle between nodes at time
-        desired_flight_path_angle = self.flight_path_cubic_interpolator.interpolate(current_time)
-        # Let TUDAT know to update all values
-        self.vehicle.flight_conditions.update_conditions(current_time)
+            # Obtain flight path angle
+            current_flight_path_calculator = self.vehicle.flight_conditions.aerodynamic_angle_calculator
+            current_flight_path_angle = current_flight_path_calculator.get_angle(environment.flight_path_angle)
+            # Compute current angle of attack using a parametric control law and return aerodynamic angles of attack
+            self.angle_of_attack = self.gain_factor * (desired_flight_path_angle - current_flight_path_angle)
 
-        # Obtain flight path angle
-        current_flight_path_calculator = self.vehicle.flight_conditions.aerodynamic_angle_calculator
-        current_flight_path_angle = current_flight_path_calculator.get_angle(environment.flight_path_angle)
-        # Compute current angle of attack using a parametric control law and return aerodynamic angles of attack
-        self.angle_of_attack = self.gain_factor * (desired_flight_path_angle - current_flight_path_angle)
+            # Thrust magnitude function which determines the thrust based on the engine design and the current time density
+            self.F_magnitude = First_Propulsion.rocket_engine_model_2(
+                self.engine_input,
+                self.vehicle_flight_conditions.density,
+                self.engine_design)["F_net_1"] * self.engine_input["N_eng"]
 
-        # Thrust magnitude function which determines the thrust based on the engine design and the current time density
-        self.F_magnitude = First_Propulsion.rocket_engine_model_2(
-            self.engine_input,
-            self.bodies.get("Earth").flight_conditions.density,
-            self.engine_design)["F_net_1"] * self.engine_input["N_eng"]
+            # Specific impulse function based on current thrust and the (constant) mass flow (and number of engines)
+            g_0 = 9.80665
+            self.I_sp = self.F_magnitude / (g_0 * self.engine_design["m_dot_1"] * self.engine_input["N_eng"])
 
-        # Specific impulse function based on current thrust and the (constant) mass flow (and number of engines)
-        g_0 = 9.80665
-        self.I_sp = self.F_magnitude / (g_0 * self.engine_design["m_dot_1"] * self.engine_input["N_eng"])
-
-        # Get current aerodynamic force coefficients
-        current_mach = self.earth.flight_conditions.mach_number
-        Mach_extrapolation_min = 2
-        angle_of_attack_spacing = 20
-        Mach_spacing = 20
-        self.CL, self.CD = First_Aerodynamics.get_aerodynamic_data(Mach_spacing,
-                                                                    angle_of_attack_spacing,
-                                                                    current_mach,
-                                                                    self.angle_of_attack,
-                                                                    Mach_extrapolation_min)
+            # Get current aerodynamic force coefficients
+            current_mach = self.vehicle_flight_conditions.mach_number
+            Mach_extrapolation_min = 2
+            angle_of_attack_spacing = 20
+            Mach_spacing = 20
+            self.CL, self.CD = First_Aerodynamics.get_aerodynamic_data(Mach_spacing,
+                                                                        angle_of_attack_spacing,
+                                                                        current_mach,
+                                                                        self.angle_of_attack,
+                                                                        Mach_extrapolation_min)
         self.current_time = current_time
-            #return self.F_magnitude, self.I_sp, np.array([self.angle_of_attack, 0, 0]), np.array([self.CD, 0, self.CL])
+                #return self.F_magnitude, self.I_sp, np.array([self.angle_of_attack, 0, 0]), np.array([self.CD, 0, self.CL])
 
 def get_propagator_settings(bodies,
                             simulation_start_epoch,

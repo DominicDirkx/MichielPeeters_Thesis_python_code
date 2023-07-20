@@ -2,6 +2,9 @@
 # IMPORT STATEMENTS #######################################################
 ###########################################################################
 
+# import sys
+# sys.path.insert(0, "/home/dominic/Tudat/tudat-bundle/tudat-bundle/cmake-build-default/tudatpy")
+
 from math import *
 import numpy as np
 import pygmo as pg
