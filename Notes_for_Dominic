@@ -1,0 +1,22 @@
+The input files are First_Aerodynamics which uses "trimmed_CL_CD.txt" as input and contains
+a function which returns the CL and CD values given a Mach number and angle of attack,
+as well as some inter- and extra polation parameters
+
+First_propulsion is used to compute propulsion system performance (Constant mass flow,
+varying thrust)
+
+First_mass_geometry provides mass and geometry of the first stage
+
+These files should be in the same directory as First_stage_ascent_functions and simulation
+
+In Simulation:
+I don't see where you would need to modify anything to run the code
+
+In First_stage_ascent_functions:
+I also do not see where you should modify anything to make simulation run as long
+as all files are in the same directory. Apologies if I missed something
+
+Summary of the relevant lines:
+Simulation: line 123 - 233 (Custom functions: 168 - 203)
+First_stage_ascent_functions: line 148 - 274 and 277 - 371
+

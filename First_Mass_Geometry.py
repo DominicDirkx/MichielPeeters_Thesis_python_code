@@ -251,6 +251,7 @@ def first_stage_mass(vehicle_geometry: dict, tank_geometry: dict, rocket_data, A
     M_fuel = W_fuel * lb_kg
     W_ox = t_b_rocket * m_dot_rocket * OF * N_eng / (1 + OF)
     M_ox = W_ox * lb_kg
+    #
     print(M_ox)
 
     W_prop = W_fuel + W_ox

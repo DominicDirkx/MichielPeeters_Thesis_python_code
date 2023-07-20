@@ -39,7 +39,7 @@ The final conditions are initial conditions of the created vehicle.
 ###########################################################################
 t_b_r = 200
 t_b_ab = 0
-print(1)
+
 # Set-up vehicle design
 rocket_engine_input = {"p_c": 10*10**6 , "T_c": 2869.9225 , "O/F": 8, "gamma_c":1.1443, "Molar_mass": 22.3894*10**(-3), "zeta_F": 0.95 ,
                        "F_net_SL": 110*10**3, "N_eng": 2}
