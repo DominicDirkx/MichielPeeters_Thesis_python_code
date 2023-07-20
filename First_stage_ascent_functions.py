@@ -54,13 +54,13 @@ def vehicle_configuration(t_b_r, t_b_ab, rocket_engine_input, rocket_engine_desi
     vehicle_geometry = geometry_output["vehicle_geometry_1"]
     tank_geometry = geometry_output["tank_geometry_1"]
     vehicle_mass_output = First_Mass_Geometry.first_stage_mass(vehicle_geometry,
-                                                           tank_geometry,
-                                                           rocket_data_take_off,
-                                                           AB_engine_data_take_off,
-                                                           None,
-                                                           t_b_r,
-                                                           t_b_ab,
-                                                           upper_design["m_upper"])
+                                                               tank_geometry,
+                                                               rocket_data_take_off,
+                                                               AB_engine_data_take_off,
+                                                               None,
+                                                               t_b_r,
+                                                               t_b_ab,
+                                                               upper_design["m_upper"])
 
     vehicle = {"Gross_mass": vehicle_mass_output["Gross_mass"],
                "Propellant_mass": vehicle_mass_output["Propellant_mass"],
@@ -137,6 +137,7 @@ def get_initial_ascent_state(V_LOF, t_LOF, simulation_start_epoch,
     )
     # Get rotationa emphermerides of the earth
     earth_rotation_model = bodies.get_body("Earth").rotation_model
+
     # Transform body-fixed cartesian state to global inertial frame
     initial_state_inertial_coordinates = environment.transform_to_inertial_orientation(
         initial_cartesian_body_fixed_state,
@@ -159,6 +160,10 @@ class CustomGuidanceModel:
         self.vehicle = bodies.get_body("Mk-III")
         self.earth = bodies.get_body("Earth")
 
+        environment_setup.add_flight_conditions(bodies, "Mk-III", "Earth")
+        self.vehicle_flight_conditions = bodies.get_body("Mk-III").flight_conditions
+        print(self.vehicle_flight_conditions.altitude)
+
         self.gain_factor = K_c
         self.initial_time = initial_time
         self.control_node_input = control_node_input
@@ -168,9 +173,11 @@ class CustomGuidanceModel:
         self.engine_design = engine_design
 
         time_now = initial_time
-        self.current_time = float("NaN")
         self.flight_path_angle_dict = {}
         self.flight_path_angle_derivative_dict = list()
+
+        self.current_time = float("NaN")
+
 
         for i in range(len(self.control_node_input)-1):
             # Store time as key, control node flight path angle as value
@@ -208,7 +215,7 @@ class CustomGuidanceModel:
 
     def get_thrust_magnitude(self, current_time: float):
         self.update_guidance(current_time)
-
+        print(current_time, self.current_time)
         return self.F_magnitude
 
     def get_Isp(self, current_time: float):
@@ -221,20 +228,23 @@ class CustomGuidanceModel:
 
         return np.array([self.angle_of_attack, 0, 0])
 
-    def get_aerodynamic_coefficients(self, current_time):
+    def get_aerodynamic_coefficients(self, current_time: float):
         self.update_guidance(current_time)
 
         return np.array([self.CD, 0, self.CL])
 
     def update_guidance(self, current_time: float):
         if (math.isnan(current_time)):
+            print("dis_not_work")
             self.current_time = float("NaN")
 
         elif (current_time != self.current_time):
+
             # Interpolate flight path angle between nodes at time
             desired_flight_path_angle = self.flight_path_cubic_interpolator.interpolate(current_time)
             # Let TUDAT know to update all values
             self.vehicle.flight_conditions.update_conditions(current_time)
+
             # Obtain flight path angle
             current_flight_path_calculator = self.vehicle.flight_conditions.aerodynamic_angle_calculator
             current_flight_path_angle = current_flight_path_calculator.get_angle(environment.flight_path_angle)
@@ -262,6 +272,7 @@ class CustomGuidanceModel:
                                                                        self.angle_of_attack,
                                                                        Mach_extrapolation_min)
             self.current_time = current_time
+            #return self.F_magnitude, self.I_sp, np.array([self.angle_of_attack, 0, 0]), np.array([self.CD, 0, self.CL])
 
 def get_propagator_settings(bodies,
                             simulation_start_epoch,
@@ -285,6 +296,7 @@ def get_propagator_settings(bodies,
     bodies_to_propagate = ["Mk-III"]
     central_bodies = ["Earth"]
 
+
     # Define accelerations acting on the vehicle: point mass gravity, aerodynamic forces, thrust
     thrust_acceleration_settings = propagation_setup.acceleration.thrust_from_engine("MainEngine")
 
@@ -293,6 +305,7 @@ def get_propagator_settings(bodies,
                   propagation_setup.acceleration.aerodynamic()],
         "Mk-III": [thrust_acceleration_settings]
     }
+
     acceleration_settings = {"Mk-III": acceleration_settings_on_vehicle}
     acceleration_models = propagation_setup.create_acceleration_models(
         bodies,
@@ -360,7 +373,7 @@ def get_propagator_settings(bodies,
 def get_termination_settings(simulation_start_epoch: float,
                              maximum_duration: float,
                              termination_altitude: float,
-                             vehicle_dry_mass: float)\
+                             vehicle_dry_mass: float) \
         -> tudatpy.kernel.numerical_simulation.propagation_setup.propagator.PropagationTerminationSettings:
     """
     # TODO: Review  upper termination altitude and mass termination setting
@@ -403,7 +416,7 @@ def get_termination_settings(simulation_start_epoch: float,
                                  lower_altitude_termination_settings,
                                  mass_termination_settings]
     hybrid_termination_settings = propagation_setup.propagator.hybrid_termination(termination_settings_list,
-                                                                                   fulfill_single_condition = True)
+                                                                                  fulfill_single_condition = True)
 
     return hybrid_termination_settings
 
@@ -424,8 +437,7 @@ def get_dependent_variable_save_settings() -> list:
                                    propagation_setup.dependent_variable.flight_path_angle("Mk-III", "Earth"),
                                    propagation_setup.dependent_variable.body_mass("Mk-III"),
                                    propagation_setup.dependent_variable.relative_position("Mk-III", "Earth"),
-                                   propagation_setup.dependent_variable.angle_of_attack("Mk-III", "Earth"),
-    ]
+                                   propagation_setup.dependent_variable.angle_of_attack("Mk-III", "Earth")]
 
     return dependent_variables_to_save
 

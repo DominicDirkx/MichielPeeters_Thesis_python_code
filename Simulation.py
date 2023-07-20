@@ -42,7 +42,7 @@ t_b_ab = 0
 print(1)
 # Set-up vehicle design
 rocket_engine_input = {"p_c": 10*10**6 , "T_c": 2869.9225 , "O/F": 8, "gamma_c":1.1443, "Molar_mass": 22.3894*10**(-3), "zeta_F": 0.95 ,
-                "F_net_SL": 110*10**3, "N_eng": 2}
+                       "F_net_SL": 110*10**3, "N_eng": 2}
 rocket_engine_design = {"m_dot_1": 42.5, "D_e_1": 0.3677}
 
 upper_design = {"l_upper": 5.54, "m_upper": 6008} # {"l_upper": 5.86, "m_upper": 7002} {"l_upper": 4.93, "m_upper": 3687}
@@ -51,14 +51,14 @@ vehicle_design = vehicle_configuration(t_b_r,
                                        rocket_engine_input,
                                        rocket_engine_design,
                                        upper_design)
-mass, propellant_mass, vehicle_dry_mass, fuel_mass, ox_mass, S_ref, A_e, p_e, U_e  = vehicle_design["Gross_mass"],\
-                                                                                     vehicle_design["Propellant_mass"],\
-                                                                                     vehicle_design["Dry_mass"],\
-                                                                                     vehicle_design["Fuel_mass"],\
-                                                                                     vehicle_design["Ox_mass"],\
-                                                                                     vehicle_design["Wing_surface_area"],\
-                                                                                     vehicle_design["A_e"],\
-                                                                                     vehicle_design["p_e"],\
+mass, propellant_mass, vehicle_dry_mass, fuel_mass, ox_mass, S_ref, A_e, p_e, U_e  = vehicle_design["Gross_mass"], \
+                                                                                     vehicle_design["Propellant_mass"], \
+                                                                                     vehicle_design["Dry_mass"], \
+                                                                                     vehicle_design["Fuel_mass"], \
+                                                                                     vehicle_design["Ox_mass"], \
+                                                                                     vehicle_design["Wing_surface_area"], \
+                                                                                     vehicle_design["A_e"], \
+                                                                                     vehicle_design["p_e"], \
                                                                                      vehicle_design["U_e"]
 
 N_eng = rocket_engine_input["N_eng"]
@@ -130,13 +130,16 @@ body_settings = environment_setup.get_default_body_settings(
     global_frame_origin,
     global_fame_orientation
 )
-#body_settings.get("Earth").atmosphere_settings = environment_setup.atmosphere.us76()
+
 bodies = environment_setup.create_system_of_bodies(body_settings)
+#body_settings.get("Earth").atmosphere_settings = environment_setup.atmosphere.us76()
+
 
 # Create Mk-III vehicle object
 bodies.create_empty_body("Mk-III")
 # Set vehicle mass
 bodies.get_body("Mk-III").mass = mass_TO
+
 
 ###########################################################################
 # Set initial conditions based on take-off performance #######################################################
@@ -161,6 +164,7 @@ termination_altitude = 100.0*10**3  # m
 ###########################################################################
 
 # Create Guidance model model for both thrust magnitude (always acting along body axis) and aerodynamic angles
+
 Guidance_model = CustomGuidanceModel(bodies,
                                      rocket_engine_input,
                                      rocket_engine_design,
@@ -170,12 +174,11 @@ Guidance_model = CustomGuidanceModel(bodies,
 
 thrust_magnitude_settings = (
     propagation_setup.thrust.custom_thrust_magnitude(
-        lambda time: Guidance_model.get_thrust_magnitude, lambda time: Guidance_model.get_Isp))
+        lambda time: Guidance_model.get_thrust_magnitude(time), lambda time: Guidance_model.get_Isp(time)))
 
 
 # # Create engine model using magnitude settings and thrust direction function with input time
 environment_setup.add_engine_model("Mk-III", "MainEngine", thrust_magnitude_settings, bodies, np.array([1, 0, 0]))
-
 
 ###########################################################################
 # Create aerodynamic acceleration settings acting on the vehicle ######################
@@ -185,7 +188,7 @@ environment_setup.add_engine_model("Mk-III", "MainEngine", thrust_magnitude_sett
 aerodynamic_coefficients = Guidance_model.get_aerodynamic_coefficients
 # Define aerodynamic coefficient settings and add aerodynamic interface
 aerodynamic_coefficient_settings = environment_setup.aerodynamic_coefficients.custom_aerodynamic_force_coefficients(
-    lambda time: aerodynamic_coefficients,
+    lambda time: aerodynamic_coefficients(time),
     S_ref,
     independent_variable_names = [environment.AerodynamicCoefficientsIndependentVariables.time_dependent])
 environment_setup.add_aerodynamic_coefficient_interface(bodies, "Mk-III", aerodynamic_coefficient_settings)
@@ -194,7 +197,8 @@ environment_setup.add_aerodynamic_coefficient_interface(bodies, "Mk-III", aerody
 aerodynamic_angles = Guidance_model.get_aerodynamic_angles
 # Define settings for rotation model from inertial to body frame?
 rotation_model_settings = environment_setup.rotation_model.aerodynamic_angle_based(
-    "Earth", "J2000", "Vehicle_fixed", lambda time: aerodynamic_angles)
+    "Earth", "J2000", "VehicleFixed", lambda time: aerodynamic_angles(time))
+
 
 environment_setup.add_rotation_model(bodies, "Mk-III", rotation_model_settings)
 
@@ -209,7 +213,6 @@ termination_settings = get_termination_settings(simulation_start_epoch,
                                                 vehicle_dry_mass )
 # Get dependent variables to save
 dependent_variables_to_save = get_dependent_variable_save_settings()
-
 # Define propagator settings
 propagator_settings = get_propagator_settings(bodies,
                                               simulation_start_epoch,
@@ -218,7 +221,7 @@ propagator_settings = get_propagator_settings(bodies,
                                               dependent_variables_to_save,
                                               lambda time: rocket_engine_design["m_dot_1"]*rocket_engine_input["N_eng"],
                                               vehicle_initial_state_inertial)
-print(bodies.get_body("Mk-III"))
+
 # Create dynamics_simulator
 
 dynamics_simulator = numerical_simulation.create_dynamics_simulator(bodies, propagator_settings)
@@ -228,17 +231,3 @@ state_history = dynamics_simulator.state_history
 dependent_variable_history = dynamics_simulator.dependent_variable_history
 
 print(state_history)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
